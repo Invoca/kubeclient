@@ -68,9 +68,16 @@ class KubeclientConfigTest < MiniTest::Test
     assert_equal('pAssw0rd123', context.auth_options[:password])
   end
 
-  def test_timestamps
-    # Test YAML parsing doesn't crash on YAML timestamp syntax.
-    Kubeclient::Config.read(config_file('timestamps.kubeconfig'))
+  def test_oidc_token
+    config = Kubeclient::Config.read(config_file('oidcauth.kubeconfig'))
+    context = config.context('localhost/system:admin:oidc')
+    check_context(context, ssl: false)
+    assert_equal('oidc', context.auth_options[:auth_provider])
+    assert_equal('admin-client-id', context.auth_options[:oidc_config][:client_id])
+    assert_equal('admin-client-secret', context.auth_options[:oidc_config][:client_secret])
+    assert_equal('admin-id-token', context.auth_options[:oidc_config][:id_token])
+    assert_equal('https://localhost', context.auth_options[:oidc_config][:idp_issuer_url])
+    assert_equal('refresh-token', context.auth_options[:oidc_config][:refresh_token])
   end
 
   private

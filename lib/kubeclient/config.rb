@@ -124,6 +124,21 @@ module Kubeclient
           options[attr.to_sym] = user[attr] if user.key?(attr)
         end
       end
+
+      oidc_config = fetch_oidc_auth_config(user)
+      options.merge!(oidc_config) unless oidc_config.empty?
+      options
+    end
+
+    def fetch_oidc_auth_config(user)
+      options = {}
+      if user.key?('auth-provider') && user['auth-provider']['name'] == 'oidc'
+        options[:auth_provider] = 'oidc'
+        config = user['auth-provider']['config'].each_with_object({}) do |(key, value), config|
+          config[key.gsub('-', '_').to_sym] = value
+        end
+        options[:oidc_config] = config
+      end
       options
     end
   end
