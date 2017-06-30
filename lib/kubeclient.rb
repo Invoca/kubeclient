@@ -11,6 +11,10 @@ require 'kubeclient/resource'
 require 'kubeclient/resource_not_found_error'
 require 'kubeclient/version'
 require 'kubeclient/watch_stream'
+require 'kubeclient/common'
+require 'kubeclient/config'
+require 'kubeclient/missing_kind_compatibility'
+require 'kubeclient/oidc_token'
 
 module Kubeclient
   # Kubernetes Client
