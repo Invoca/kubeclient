@@ -53,7 +53,7 @@ module Kubeclient
     REFRESH_WITHIN = 300
     ID_TOKEN = 'id_token'.freeze
     TOKEN_EXPIRY = 'exp'.freeze
-    GRANT_TYPE = 'refresh_token'.freeze
+    REFRESH_GRANT_TYPE = 'refresh_token'.freeze
 
     def initialize(client_id:, client_secret:, idp_issuer_url:, id_token:, refresh_token:)
       @client_id = client_id
@@ -88,7 +88,7 @@ module Kubeclient
         client_id: client_id,
         client_secret: client_secret,
         refresh_token: refresh_token,
-        grant_type: GRANT_TYPE
+        grant_type: REFRESH_GRANT_TYPE
       }
     end
 
