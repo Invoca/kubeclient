@@ -47,7 +47,7 @@ module Kubeclient
   end
 
   class OidcToken
-    attr_reader :client_id, :refresh_token, :client_secret, :idp_provider_url, :oidc_discovery
+    attr_reader :client_id, :refresh_token, :client_secret, :idp_issuer_url, :oidc_discovery
     delegate *OidcDiscovery.fields, to: :oidc_discovery
 
     REFRESH_WITHIN = 300
