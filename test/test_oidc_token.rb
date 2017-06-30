@@ -29,7 +29,7 @@ class OidcTokenTest < MiniTest::Test
     client_secret = 'client-secret'
     refresh_token = 'refresh-token'
 
-    stub_provider(idp: idp, jwk_response: [{}])
+    stub_provider(idp: idp, jwk_response: { keys: [] })
 
     assert_raises JSON::JWK::Set::KidNotFound do
       Kubeclient::OidcToken.new(
@@ -63,7 +63,7 @@ class OidcTokenTest < MiniTest::Test
     refresh_response_body = { token_type: 'Bearer', expires_in: 3600, id_token: refreshed_token_value }.to_json
 
     stub_request(:get, discovery_endpoint).to_return(body: discovery_response_body, status: 200)
-    stub_request(:get, jwks_endpoint).to_return(body: [jwt.jwk].to_json, status: 200)
+    stub_request(:get, jwks_endpoint).to_return(body: { keys: [jwt.jwk] }.to_json, status: 200)
     stub_request(:post, token_endpoint).to_return(body: refresh_response_body, status: 200)
 
     oidc_token = Kubeclient::OidcToken.new(
@@ -98,7 +98,7 @@ class OidcTokenTest < MiniTest::Test
     client_secret = 'client-secret'
     refresh_token = 'refresh-token'
 
-    stub_provider(idp: idp, jwk_response: [jwt.jwk])
+    stub_provider(idp: idp, jwk_response: { keys: [jwt.jwk] })
 
     oidc_token = Kubeclient::OidcToken.new(
       client_id: client_id,
