@@ -35,7 +35,7 @@ class OidcTokenTest < MiniTest::Test
       Kubeclient::OidcToken.new(
         client_id: client_id,
         client_secret: client_secret,
-        idp: idp,
+        idp_issuer_url: idp,
         id_token: jwt.id_token,
         refresh_token: refresh_token
       )
@@ -69,7 +69,7 @@ class OidcTokenTest < MiniTest::Test
     oidc_token = Kubeclient::OidcToken.new(
       client_id: client_id,
       client_secret: client_secret,
-      idp: idp,
+      idp_issuer_url: idp,
       id_token: id_token,
       refresh_token: refresh_token
     )
@@ -103,7 +103,7 @@ class OidcTokenTest < MiniTest::Test
     oidc_token = Kubeclient::OidcToken.new(
       client_id: client_id,
       client_secret: client_secret,
-      idp: idp,
+      idp_issuer_url: idp,
       id_token: jwt.id_token,
       refresh_token: refresh_token
     )

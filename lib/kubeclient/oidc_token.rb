@@ -47,7 +47,7 @@ module Kubeclient
   end
 
   class OidcToken
-    attr_reader :client_id, :refresh_token, :client_secret, :idp, :oidc_discovery
+    attr_reader :client_id, :refresh_token, :client_secret, :idp_provider_url, :oidc_discovery
     delegate *OidcDiscovery.fields, to: :oidc_discovery
 
     REFRESH_WITHIN = 300
@@ -55,13 +55,13 @@ module Kubeclient
     TOKEN_EXPIRY = 'exp'.freeze
     GRANT_TYPE = 'refresh_token'.freeze
 
-    def initialize(client_id:, client_secret:, idp:, id_token:, refresh_token:)
+    def initialize(client_id:, client_secret:, idp_issuer_url:, id_token:, refresh_token:)
       @client_id = client_id
       @client_secret = client_secret
-      @idp = idp
+      @idp_issuer_url = idp_issuer_url
       @id_token = id_token
       @refresh_token = refresh_token
-      @oidc_discovery = OidcDiscovery.new(idp)
+      @oidc_discovery = OidcDiscovery.new(idp_issuer_url)
 
       decode_token_payload(ignore_kid_not_found: true)
     end
