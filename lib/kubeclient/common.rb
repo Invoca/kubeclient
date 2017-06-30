@@ -46,7 +46,6 @@ module Kubeclient
     attr_reader :ssl_options
     attr_reader :auth_options
     attr_reader :http_proxy_uri
-    attr_reader :headers
     attr_reader :discovered
 
     def initialize_client(
@@ -266,7 +265,7 @@ module Kubeclient
       ns_prefix = build_namespace_prefix(options[:namespace])
       response = handle_exception do
         rest_client[ns_prefix + resource_name]
-          .get({ 'params' => params }.merge(@headers))
+          .get({ 'params' => params }.merge(headers))
       end
       format_response(options[:as] || @as, response.body, entity_type)
     end
@@ -279,7 +278,7 @@ module Kubeclient
       ns_prefix = build_namespace_prefix(namespace)
       response = handle_exception do
         rest_client[ns_prefix + resource_name + "/#{name}"]
-          .get(@headers)
+          .get(headers)
       end
       format_response(options[:as] || @as, response.body)
     end
@@ -288,17 +287,9 @@ module Kubeclient
     def delete_entity(resource_name, name, namespace = nil, delete_options: {})
       delete_options_hash = delete_options.to_hash
       ns_prefix = build_namespace_prefix(namespace)
-      payload = delete_options_hash.to_json unless delete_options_hash.empty?
-      response = handle_exception do
-        rs = rest_client[ns_prefix + resource_name + "/#{name}"]
-        RestClient::Request.execute(
-          rs.options.merge(
-            method: :delete,
-            url: rs.url,
-            headers: { 'Content-Type' => 'application/json' }.merge(@headers),
-            payload: payload
-          )
-        )
+      handle_exception do
+        rest_client[ns_prefix + resource_name + "/#{name}"]
+          .delete(headers)
       end
       format_response(@as, response.body)
     end
@@ -319,7 +310,7 @@ module Kubeclient
       hash[:apiVersion] = @api_group + @api_version
       response = handle_exception do
         rest_client[ns_prefix + resource_name]
-          .post(hash.to_json, { 'Content-Type' => 'application/json' }.merge(@headers))
+          .post(hash.to_json, { 'Content-Type' => 'application/json' }.merge(headers))
       end
       format_response(@as, response.body)
     end
@@ -329,7 +320,7 @@ module Kubeclient
       ns_prefix = build_namespace_prefix(entity_config[:metadata][:namespace])
       response = handle_exception do
         rest_client[ns_prefix + resource_name + "/#{name}"]
-          .put(entity_config.to_h.to_json, { 'Content-Type' => 'application/json' }.merge(@headers))
+          .put(entity_config.to_h.to_json, { 'Content-Type' => 'application/json' }.merge(headers))
       end
       format_response(@as, response.body)
     end
@@ -340,7 +331,7 @@ module Kubeclient
         rest_client[ns_prefix + resource_name + "/#{name}"]
           .patch(
             patch.to_json,
-            { 'Content-Type' => 'application/strategic-merge-patch+json' }.merge(@headers)
+            { 'Content-Type' => 'application/strategic-merge-patch+json' }.merge(headers)
           )
       end
       format_response(@as, response.body)
@@ -373,7 +364,7 @@ module Kubeclient
       ns = build_namespace_prefix(namespace)
       handle_exception do
         rest_client[ns + "pods/#{pod_name}/log"]
-          .get({ 'params' => params }.merge(@headers))
+          .get({ 'params' => params }.merge(headers))
       end
     end
 
@@ -408,7 +399,7 @@ module Kubeclient
       ns_prefix = build_namespace_prefix(template[:metadata][:namespace])
       response = handle_exception do
         rest_client[ns_prefix + 'processedtemplates']
-          .post(template.to_h.to_json, { 'Content-Type' => 'application/json' }.merge(@headers))
+          .post(template.to_h.to_json, { 'Content-Type' => 'application/json' }.merge(headers))
       end
       JSON.parse(response)
     end
@@ -421,7 +412,7 @@ module Kubeclient
     end
 
     def api
-      response = handle_exception { create_rest_client.get(@headers) }
+      response = handle_exception { create_rest_client.get(headers) }
       JSON.parse(response)
     end
 
@@ -468,6 +459,13 @@ module Kubeclient
       end
     end
 
+    def headers
+      bearer_token(oidc_token.id_token) if oidc_auth_provider?
+      @headers
+    end
+
+    private
+
     def load_entities
       @entities = {}
       fetch_entities['resources'].each do |resource|
@@ -480,11 +478,18 @@ module Kubeclient
     end
 
     def fetch_entities
-      JSON.parse(handle_exception { rest_client.get(@headers) })
+      JSON.parse(handle_exception { rest_client.get(headers) })
+    end
+
+    def oidc_auth_provider?
+      auth_options[:auth_provider] == 'oidc'
+    end
+
+    def oidc_token
+      @oidc_token ||= Kubeclient::OidcToken.new(**auth_options[:oidc_config])
     end
 
     def bearer_token(bearer_token)
-      @headers ||= {}
       @headers[:Authorization] = "Bearer #{bearer_token}"
     end
 
@@ -500,6 +505,13 @@ module Kubeclient
         )
       elsif %i[username password].count { |key| opts[key] } == 1
         raise ArgumentError, 'Basic auth requires both username & password'
+      elsif opts[:auth_provider] == 'oidc'
+        required_options = [:idp_issuer_url, :client_id, :client_secret, :refresh_token, :id_token]
+        unless (missing = required_options - opts[:oidc_config].keys).empty?
+          raise ArgumentError,
+            'OIDC token auth requires the following config options: ' \
+            "#{missing.map { |arg| arg.to_s.gsub('_', '-') }.join(', ')}"
+        end
       end
     end
 
@@ -515,7 +527,7 @@ module Kubeclient
       options = {
         basic_auth_user: @auth_options[:username],
         basic_auth_password: @auth_options[:password],
-        headers: @headers,
+        headers: headers,
         http_proxy_uri: @http_proxy_uri
       }
 

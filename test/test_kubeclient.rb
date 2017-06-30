@@ -75,7 +75,7 @@ class KubeclientTest < MiniTest::Test
 
     assert_instance_of(Kubeclient::HttpError, exception)
     assert_equal("converting  to : type names don't match (Pod, Namespace)",
-                 exception.message)
+      exception.message)
 
     assert_includes(exception.to_s, ' for POST http://localhost:8080/api')
     assert_equal(409, exception.error_code)
@@ -511,25 +511,40 @@ class KubeclientTest < MiniTest::Test
     assert_equal(response, exception.response)
   end
 
-  def test_api_bearer_token_failure_raw
-    error_message =
-      '"/api/v1" is forbidden because ' \
-      'system:anonymous cannot list on pods in'
-    response = OpenStruct.new(code: 401, message: error_message)
+  def test_api_oidc_token_success
+    stub_request(:get, %r{/api/v1$}).to_return(body: open_test_file('core_api_resource_list.json'), status: 200)
+    stub_request(:get, 'http://localhost:8080/api/v1/pods')
+      .with(headers: { Authorization: 'Bearer refreshed-id-token' })
+      .to_return(body: open_test_file('pod_list.json'), status: 200)
 
-    stub_request(:get, 'http://localhost:8080/api/v1')
-      .with(headers: { Authorization: 'Bearer invalid_token' })
-      .to_raise(Kubeclient::HttpError.new(403, error_message, response))
+    oidc_token = MiniTest::Mock.new
+    2.times { oidc_token.expect(:id_token, 'refreshed-id-token') }
 
-    client = Kubeclient::Client.new(
-      'http://localhost:8080/api/',
-      auth_options: { bearer_token: 'invalid_token' }
-    )
+    Kubeclient::OidcToken.stub(:new, oidc_token,
+      idp_issuer_url: 'https://localhost',
+      client_id: 'client-id',
+      client_secret: 'client-secret',
+      id_token: 'id-token',
+      refresh_token: 'refresh-token'
+    ) do
+      client = Kubeclient::Client.new('http://localhost:8080/api/',
+        auth_options: {
+          auth_provider: 'oidc',
+          oidc_config: {
+            idp_issuer_url: 'https://localhost',
+            client_id: 'client-id',
+            client_secret: 'client-secret',
+            id_token: 'id-token',
+            refresh_token: 'refresh-token'
+          }
+        }
+      )
 
-    exception = assert_raises(Kubeclient::HttpError) { client.get_pods(as: :raw) }
-    assert_equal(403, exception.error_code)
-    assert_equal(error_message, exception.message)
-    assert_equal(response, exception.response)
+      client.get_pods
+    end
+
+    assert_mock oidc_token
+    assert_requested(:get, 'http://localhost:8080/api/v1/pods', times: 1)
   end
 
   def test_api_basic_auth_success
