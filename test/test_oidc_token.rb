@@ -1,6 +1,8 @@
 require 'test_helper'
 
 class OidcTokenTest < MiniTest::Test
+  RSA_PRIVATE_KEY = OpenSSL::PKey::RSA.new(1024)
+
   def build_jwt_jwk_pair(payload, private_key)
     jwk = private_key.to_jwk
     id_token = JSON::JWT.new(payload)
@@ -22,8 +24,7 @@ class OidcTokenTest < MiniTest::Test
   def test_unexpired_token_fails_verify
     idp = 'https://domain.tld'
     payload = { exp: Time.now.to_i + 3600 }
-    private_key = OpenSSL::PKey::RSA.new(2048)
-    jwt = build_jwt_jwk_pair(payload, private_key)
+    jwt = build_jwt_jwk_pair(payload, RSA_PRIVATE_KEY)
 
     client_id = 'client-id'
     client_secret = 'client-secret'
@@ -44,8 +45,7 @@ class OidcTokenTest < MiniTest::Test
 
   def test_token_needs_refresh
     payload = { exp: Time.now.to_i - 3600 }
-    private_key = OpenSSL::PKey::RSA.new(2048)
-    jwt = build_jwt_jwk_pair(payload, private_key)
+    jwt = build_jwt_jwk_pair(payload, RSA_PRIVATE_KEY)
     id_token = jwt.id_token
 
     client_id = 'client-id'
@@ -59,7 +59,7 @@ class OidcTokenTest < MiniTest::Test
 
     discovery_response_body = { issuer: idp, token_endpoint: token_endpoint, jwks_uri: jwks_endpoint }.to_json
     refreshed_payload = { exp: Time.now.to_i + 3600 }
-    refreshed_token_value = build_jwt_jwk_pair(refreshed_payload, private_key).id_token
+    refreshed_token_value = build_jwt_jwk_pair(refreshed_payload, RSA_PRIVATE_KEY).id_token
     refresh_response_body = { token_type: 'Bearer', expires_in: 3600, id_token: refreshed_token_value }.to_json
 
     stub_request(:get, discovery_endpoint).to_return(body: discovery_response_body, status: 200)
@@ -89,8 +89,7 @@ class OidcTokenTest < MiniTest::Test
 
   def test_token_no_refresh_needed
     payload = { exp: Time.now.to_i + 3600 }
-    private_key = OpenSSL::PKey::RSA.new(2048)
-    jwt = build_jwt_jwk_pair(payload, private_key)
+    jwt = build_jwt_jwk_pair(payload, RSA_PRIVATE_KEY)
 
     idp = 'https://domain.tld'
     token_endpoint = "#{idp}/token"
