@@ -9,6 +9,7 @@ require 'kubeclient/watch_stream'
 require 'kubeclient/common'
 require 'kubeclient/config'
 require 'kubeclient/missing_kind_compatibility'
+require 'kubeclient/oidc_token'
 
 module Kubeclient
   # Kubernetes Client
