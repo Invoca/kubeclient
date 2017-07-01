@@ -1,6 +1,3 @@
-require 'json/jwt'
-require 'delegate'
-
 module Kubeclient
   OidcException = Class.new(StandardError)
 
@@ -10,8 +7,7 @@ module Kubeclient
     DISCOVERY_PATH = '.well-known/openid-configuration'.freeze
 
     FIELD_MAP = {
-      token_endpoint: 'token_endpoint',
-      jwks_endpoint: 'jwks_uri'
+      token_endpoint: 'token_endpoint'
     }
 
     class << self
@@ -47,8 +43,10 @@ module Kubeclient
   end
 
   class OidcToken
+    extend Forwardable
+
     attr_reader :client_id, :refresh_token, :client_secret, :idp_issuer_url, :oidc_discovery
-    delegate *OidcDiscovery.fields, to: :oidc_discovery
+    def_delegators :oidc_discovery, *OidcDiscovery.fields
 
     REFRESH_WITHIN = 300
     ID_TOKEN = 'id_token'.freeze
@@ -62,8 +60,6 @@ module Kubeclient
       @id_token = id_token
       @refresh_token = refresh_token
       @oidc_discovery = OidcDiscovery.new(idp_issuer_url)
-
-      decode_token_payload(ignore_kid_not_found: true)
     end
 
     def id_token
@@ -74,13 +70,12 @@ module Kubeclient
     private
 
     def refresh?
-      @token_payload[TOKEN_EXPIRY] - REFRESH_WITHIN < Time.now.to_i
+      decode_token_payload[TOKEN_EXPIRY] - REFRESH_WITHIN < Time.now.to_i
     end
 
     def refresh
       response = RestClient.post(token_endpoint, refresh_payload)
       @id_token = JSON.parse(response)[ID_TOKEN]
-      decode_token_payload
     end
 
     def refresh_payload
@@ -92,21 +87,8 @@ module Kubeclient
       }
     end
 
-    # If the token has been expired for some time, the JWK signing key may have been rotated out
-    # Ignore KidNotFound errors IIF the token is expired and ignore_kid_not_found == true
-    def decode_token_payload(ignore_kid_not_found: false)
-      @token_payload = JSON::JWT.decode(@id_token, jwks)
-    rescue JSON::JWK::Set::KidNotFound => e
-      if ignore_kid_not_found
-        @token_payload = JSON::JWT.decode(@id_token, :skip_verification)
-        raise e unless refresh?
-      else
-        raise e
-      end
-    end
-
-    def jwks
-      JSON::JWK::Set.new(JSON.parse(RestClient.get(jwks_endpoint)))
+    def decode_token_payload
+      JSON.parse(Base64.urlsafe_decode64(@id_token.split('.')[1]))
     end
   end
 end
