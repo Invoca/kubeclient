@@ -30,5 +30,4 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'rest-client'
   spec.add_dependency 'recursive-open-struct', '~> 1.0.0'
   spec.add_dependency 'http', '~> 2.0'
-  spec.add_dependency 'json-jwt'
 end
