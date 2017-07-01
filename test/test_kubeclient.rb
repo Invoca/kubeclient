@@ -544,7 +544,9 @@ class KubeclientTest < MiniTest::Test
     end
 
     assert_mock oidc_token
-    assert_requested(:get, 'http://localhost:8080/api/v1/pods', times: 1)
+    assert_requested(:get, 'http://localhost:8080/api/v1/pods', times: 1,
+      headers:  { Authorization: 'Bearer refreshed-id-token' }
+    )
   end
 
   def test_api_basic_auth_success
