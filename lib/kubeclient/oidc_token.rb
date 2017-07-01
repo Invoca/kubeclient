@@ -60,6 +60,7 @@ module Kubeclient
       @id_token = id_token
       @refresh_token = refresh_token
       @oidc_discovery = OidcDiscovery.new(idp_issuer_url)
+      @token_payload = decode_token_payload
     end
 
     def id_token
@@ -70,12 +71,13 @@ module Kubeclient
     private
 
     def refresh?
-      decode_token_payload[TOKEN_EXPIRY] - REFRESH_WITHIN < Time.now.to_i
+      @token_payload[TOKEN_EXPIRY] - REFRESH_WITHIN < Time.now.to_i
     end
 
     def refresh
       response = RestClient.post(token_endpoint, refresh_payload)
       @id_token = JSON.parse(response)[ID_TOKEN]
+      @token_payload = decode_token_payload
     end
 
     def refresh_payload
