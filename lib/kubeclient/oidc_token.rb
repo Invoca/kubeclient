@@ -37,7 +37,7 @@ module Kubeclient
     end
 
     def validate_and_retrieve_field(field)
-      discovered.key?(field) && discovered[field] or raise OidcException,
+      discovered[field] or raise OidcException,
         "OIDC discovery URL #{discovery_url} did not return a JSON document containing a '#{field}' field"
     end
   end
