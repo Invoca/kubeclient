@@ -122,7 +122,7 @@ module Kubeclient
       end
 
       oidc_config = fetch_oidc_auth_config(user)
-      options.merge!(oidc_config) unless oidc_config.empty?
+      options.merge!(oidc_config)
       options
     end
 
