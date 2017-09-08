@@ -838,7 +838,32 @@ class KubeclientTest < MiniTest::Test
     )
     rest_client = client.rest_client
     assert_nil(rest_client.open_timeout)
-    assert_nil(rest_client.read_timeout)
+    assert_nil(read_timeout(rest_client))
+  end
+
+  def test_delete_with_propagation_policy
+    service = Kubeclient::Resource.new
+    service.name = 'test-service'
+    delete_options = { kind: 'DeleteOptions', apiVersion: 'v1', propagationPolicy: 'Foreground' }
+
+    stub_request(:get, %r{/api/v1$})
+      .to_return(body: open_test_file('core_api_resource_list.json'),
+        status: 200)
+
+    stub_request(:delete, %r{/namespaces/default/services}).to_return(status: 200)
+
+    client = Kubeclient::Client.new('http://localhost:8080/api/', 'v1')
+    client.delete_service(service.name, 'default', propagation_policy: 'Foreground')
+
+    expected_url = 'http://localhost:8080/api/v1/namespaces/default/services/test-service'
+    assert_requested(:delete, expected_url, times: 1) do |req|
+      req.body == delete_options.to_json
+      req.headers['Content-Type'] == 'application/json'
+    end
+  end
+
+  def read_timeout(rest_client)
+    rest_client.send(Kubeclient::ClientMixin.restclient_read_timeout_option)
   end
 
   def assert_default_open_timeout(actual)
