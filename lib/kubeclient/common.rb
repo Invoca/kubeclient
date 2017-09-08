@@ -193,8 +193,8 @@ module Kubeclient
           get_entity(klass, entity.resource_name, name, namespace)
         end
 
-        define_singleton_method("delete_#{entity.method_names[0]}") do |name, namespace = nil|
-          delete_entity(entity.resource_name, name, namespace)
+        define_singleton_method("delete_#{entity.method_names[0]}") do |name, namespace = nil, propagation_policy: nil|
+          delete_entity(entity.resource_name, name, namespace, propagation_policy: propagation_policy)
         end
 
         define_singleton_method("create_#{entity.method_names[0]}") do |entity_config|
@@ -234,7 +234,8 @@ module Kubeclient
 
     def rest_client
       @rest_client ||= begin
-        create_rest_client("#{@api_endpoint.path}/#{@api_version}")
+        client = create_rest_client("#{@api_endpoint.path}/#{@api_version}")
+        RestClientDecorator.new(client)
       end
     end
 
@@ -295,11 +296,16 @@ module Kubeclient
       new_entity(result, klass)
     end
 
-    def delete_entity(resource_name, name, namespace = nil)
+    def delete_entity(resource_name, name, namespace = nil, propagation_policy: nil)
       ns_prefix = build_namespace_prefix(namespace)
       handle_exception do
-        rest_client[ns_prefix + resource_name + "/#{name}"]
-          .delete(headers)
+        if propagation_policy.nil?
+          rest_client[ns_prefix + resource_name + "/#{name}"].delete(headers)
+        else
+          payload = { kind: 'DeleteOptions', apiVersion: 'v1', propagationPolicy: propagation_policy }.to_json
+          content_type = { 'Content-Type' => 'application/json' }
+          rest_client[ns_prefix + resource_name + "/#{name}"].delete_with_payload(payload, headers.merge(content_type))
+        end
       end
     end
 
@@ -525,6 +531,26 @@ module Kubeclient
       end
 
       options.merge(@socket_options)
+    end
+  end
+
+  class RestClientDecorator < SimpleDelegator
+    def initialize(rest_client)
+      @rest_client = rest_client
+      super
+    end
+
+    def delete_with_payload(payload, additional_headers={}, &block)
+      headers = (options[:headers] || {}).merge(additional_headers)
+      RestClient::Request.execute(options.merge(
+        method: :delete,
+        payload: payload,
+        url: url,
+        headers: headers), &(block || @rest_client.block))
+    end
+
+    def [](_suburl, &_new_block)
+      self.class.new(super)
     end
   end
 end
